@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #define MAX 100
 #define NAMA_FILE "database.txt"
@@ -18,8 +19,14 @@ void hapusTugas(struct Tugas daftarTugas[], int *jumlahTugas);
 void ubahStatusTugas(struct Tugas daftarTugas[], int jumlahTugas);
 void tampilkanBerdasarkanPrioritas(struct Tugas daftarTugas[], int jumlahTugas);
 void statistikJumlahTugas(struct Tugas daftarTugas[], int jumlahTugas);
+void cariTugas(struct Tugas daftarTugas[], int jumlahTugas);
+void tampilkanBerdasarkanStatus(struct Tugas daftarTugas[], int jumlahTugas);
+void tampilkanDaftar(struct Tugas daftarTugas[], int jumlahTugas);
 void cetakTugas(struct Tugas tugas, int nomor);
+void tungguKembali();
 void bersihkanBuffer();
+int validasiDeadline(char deadline[]);
+int hitungTugasSelesai(struct Tugas daftarTugas[], int jumlahTugas, int indeks);
 void simpanTugas(struct Tugas daftarTugas[], int jumlahTugas);
 void muatTugas(struct Tugas daftarTugas[], int *jumlahTugas);
 int bacaBaris(FILE *file, char tujuan[]);
@@ -39,12 +46,14 @@ int main(void){
         printf("4. Ubah Status Tugas\n");
         printf("5. Tampilkan berdasarkan prioritas\n");
         printf("6. Statistik Jumlah Tugas\n");
+        printf("7. Cari Tugas berdasarkan nama\n");
+        printf("8. Tampilkan berdasarkan status\n");
         printf("0. Keluar\n");
         printf("Pilihan: ");
         if(scanf("%d", &pilihan) != 1){
-            bersihkanBuffer();
             pilihan = -1;
         }
+        bersihkanBuffer();
 
         switch(pilihan){
             case 1:
@@ -68,8 +77,14 @@ int main(void){
             case 6:
                 statistikJumlahTugas(daftarTugas, jumlahTugas);
                 break;
+            case 7:
+                cariTugas(daftarTugas, jumlahTugas);
+                break;
+            case 8:
+                tampilkanBerdasarkanStatus(daftarTugas, jumlahTugas);
+                break;
             case 0:
-                printf("Terima kasih telah menggunakan aplikasi TO DO LIST.\n");
+                printf("JANGAN LUPA KERJAIN TUGASNYA WOIII.\n");
                 break;
             default:
                 printf("Pilihan tidak valid. Silakan coba lagi.\n");
@@ -80,11 +95,57 @@ int main(void){
     return 0;
 }
 
-//Fungsi
-
 void bersihkanBuffer() {
     int c;
     while((c = getchar()) != '\n' && c != EOF);
+}
+
+void tungguKembali() {
+    int kembali = -1;
+
+    do{
+        printf("\nMasukkan 0 untuk kembali ke menu: ");
+        if(scanf("%d", &kembali) != 1){
+            bersihkanBuffer();
+            kembali = -1;
+        }
+    } while(kembali != 0);
+}
+
+int validasiDeadline(char deadline[]) {
+    int hari, bulan, tahun;
+    int maksHari;
+    int hariDalamBulan[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+
+    if(strlen(deadline) != 10){
+        return 0;
+    }
+    for(int i = 0; i < 10; i++){
+        if(i == 2 || i == 5){
+            if(deadline[i] != '-'){
+                return 0;
+            }
+        } else if(!isdigit((unsigned char)deadline[i])){
+            return 0;
+        }
+    }
+
+    sscanf(deadline, "%d-%d-%d", &hari, &bulan, &tahun);
+
+    if(tahun < 2000 || bulan < 1 || bulan > 12){
+        return 0;
+    }
+
+    maksHari = hariDalamBulan[bulan - 1];
+    if(bulan == 2 && ((tahun % 4 == 0 && tahun % 100 != 0) || tahun % 400 == 0)){
+        maksHari = 29;
+    }
+
+    if(hari < 1 || hari > maksHari){
+        return 0;
+    }
+
+    return 1;
 }
 
 void cetakTugas(struct Tugas tugas, int nomor) {
@@ -93,6 +154,13 @@ void cetakTugas(struct Tugas tugas, int nomor) {
     printf("   Deadline: %s\n", tugas.deadline);
     printf("   Prioritas: %d\n", tugas.prioritas);
     printf("   Status: %s\n", tugas.status == 1 ? "Selesai" : "Belum Selesai");
+}
+
+void tampilkanDaftar(struct Tugas daftarTugas[], int jumlahTugas) {
+    printf("Daftar Tugas:\n");
+    for(int i = 0; i < jumlahTugas; i++){
+        cetakTugas(daftarTugas[i], i + 1);
+    }
 }
 
 void tambahTugas(struct Tugas daftarTugas[], int *jumlahTugas) {
@@ -105,10 +173,19 @@ void tambahTugas(struct Tugas daftarTugas[], int *jumlahTugas) {
 
     printf("Masukkan nama tugas: ");
     scanf(" %99[^\n]", tugas->nama);
+    bersihkanBuffer();
     printf("Masukkan deskripsi tugas: ");
     scanf(" %99[^\n]", tugas->deskripsi);
-    printf("Masukkan deadline tugas (format: YYYY-MM-DD): ");
-    scanf(" %99[^\n]", tugas->deadline);
+    bersihkanBuffer();
+
+    do{
+        printf("Masukkan deadline tugas (format: DD-MM-YYYY): ");
+        scanf(" %99[^\n]", tugas->deadline);
+        bersihkanBuffer();
+        if(!validasiDeadline(tugas->deadline)){
+            printf("Format deadline tidak valid. Contoh: 20-11-2026\n");
+        }
+    } while(!validasiDeadline(tugas->deadline));
 
     do{
         printf("Masukkan prioritas tugas (1-5): ");
@@ -130,13 +207,11 @@ void tambahTugas(struct Tugas daftarTugas[], int *jumlahTugas) {
 void lihatTugas(struct Tugas daftarTugas[], int jumlahTugas) {
     if(jumlahTugas == 0){
         printf("Belum ada tugas.\n");
-        return;
+    } else {
+        tampilkanDaftar(daftarTugas, jumlahTugas);
     }
 
-    printf("Daftar Tugas:\n");
-    for(int i = 0; i < jumlahTugas; i++){
-        cetakTugas(daftarTugas[i], i + 1);
-    }
+    tungguKembali();
 }
 
 void hapusTugas(struct Tugas daftarTugas[], int *jumlahTugas) {
@@ -147,7 +222,7 @@ void hapusTugas(struct Tugas daftarTugas[], int *jumlahTugas) {
         return;
     }
 
-    lihatTugas(daftarTugas, *jumlahTugas);
+    tampilkanDaftar(daftarTugas, *jumlahTugas);
     printf("Masukkan nomor tugas yang akan dihapus (0 untuk batal): ");
     if(scanf("%d", &nomor) != 1){
         bersihkanBuffer();
@@ -180,7 +255,7 @@ void ubahStatusTugas(struct Tugas daftarTugas[], int jumlahTugas) {
         return;
     }
 
-    lihatTugas(daftarTugas, jumlahTugas);
+    tampilkanDaftar(daftarTugas, jumlahTugas);
     printf("Masukkan nomor tugas yang akan diubah statusnya (0 untuk batal): ");
     if(scanf("%d", &nomor) != 1){
         bersihkanBuffer();
@@ -206,35 +281,111 @@ void ubahStatusTugas(struct Tugas daftarTugas[], int jumlahTugas) {
 void tampilkanBerdasarkanPrioritas(struct Tugas daftarTugas[], int jumlahTugas) {
     if(jumlahTugas == 0){
         printf("Belum ada tugas.\n");
-        return;
-    }
-
-    printf("Daftar Tugas Berdasarkan Prioritas (5 = paling penting):\n");
-    for(int p = 5; p >= 1; p--){
-        for(int i = 0; i < jumlahTugas; i++){
-            if(daftarTugas[i].prioritas == p){
-                cetakTugas(daftarTugas[i], i + 1);
+    } else {
+        printf("Daftar Tugas Berdasarkan Prioritas (5 = paling penting):\n");
+        for(int p = 5; p >= 1; p--){
+            for(int i = 0; i < jumlahTugas; i++){
+                if(daftarTugas[i].prioritas == p){
+                    cetakTugas(daftarTugas[i], i + 1);
+                }
             }
         }
     }
+
+    tungguKembali();
 }
 
 void statistikJumlahTugas(struct Tugas daftarTugas[], int jumlahTugas) {
-    int selesai = 0;
-
-    for(int i = 0; i < jumlahTugas; i++){
-        if(daftarTugas[i].status == 1){
-            selesai++;
-        }
-    }
+    int selesai = hitungTugasSelesai(daftarTugas, jumlahTugas, 0);
 
     printf("Statistik Tugas:\n");
     printf("Total tugas       : %d\n", jumlahTugas);
     printf("Sudah selesai     : %d\n", selesai);
     printf("Belum selesai     : %d\n", jumlahTugas - selesai);
+
     if(jumlahTugas > 0){
         printf("Persentase selesai: %.1f%%\n", (float)selesai / jumlahTugas * 100);
     }
+
+    tungguKembali();
+}
+
+int hitungTugasSelesai(struct Tugas daftarTugas[], int jumlahTugas, int indeks) {
+    if(indeks == jumlahTugas){
+        return 0;
+    }
+
+    if(daftarTugas[indeks].status == 1){
+        return 1 + hitungTugasSelesai(daftarTugas, jumlahTugas, indeks + 1);
+    } else {
+        return hitungTugasSelesai(daftarTugas, jumlahTugas, indeks + 1);
+    }
+}
+
+void cariTugas(struct Tugas daftarTugas[], int jumlahTugas) {
+    char namaDicari[MAX];
+    int ditemukan = 0;
+
+    printf("Masukkan nama tugas yang dicari: ");
+    scanf(" %99[^\n]", namaDicari);
+    bersihkanBuffer();
+
+    for(int i = 0; i < jumlahTugas; i++){
+        if(strcmp(daftarTugas[i].nama, namaDicari) == 0){
+            if(ditemukan == 0){
+                printf("Hasil Pencarian:\n");
+            }
+            cetakTugas(daftarTugas[i], i + 1);
+            ditemukan++;
+        }
+    }
+
+    if(ditemukan == 0){
+        printf("Tugas dengan nama \"%s\" tidak ditemukan.\n", namaDicari);
+    }
+
+    tungguKembali();
+}
+
+void tampilkanBerdasarkanStatus(struct Tugas daftarTugas[], int jumlahTugas) {
+    int pilihanStatus;
+    int statusDicari;
+    int ditemukan = 0;
+
+    do{
+        printf("Pilih status yang ingin ditampilkan:\n");
+        printf("1. Selesai\n");
+        printf("2. Belum Selesai\n");
+        printf("0. Kembali\n");
+        printf("Pilihan: ");
+        if(scanf("%d", &pilihanStatus) != 1){
+            bersihkanBuffer();
+            pilihanStatus = -1;
+        }
+        if(pilihanStatus < 0 || pilihanStatus > 2){
+            printf("Pilihan tidak valid. Silakan coba lagi.\n");
+        }
+    } while(pilihanStatus < 0 || pilihanStatus > 2);
+
+    if(pilihanStatus == 0){
+        return;
+    }
+
+    statusDicari = (pilihanStatus == 1) ? 1 : 0;
+
+    printf("Daftar Tugas %s:\n", statusDicari == 1 ? "Selesai" : "Belum Selesai");
+    for(int i = 0; i < jumlahTugas; i++){
+        if(daftarTugas[i].status == statusDicari){
+            cetakTugas(daftarTugas[i], i + 1);
+            ditemukan++;
+        }
+    }
+
+    if(ditemukan == 0){
+        printf("Tidak ada tugas dengan status tersebut.\n");
+    }
+
+    tungguKembali();
 }
 
 void simpanTugas(struct Tugas daftarTugas[], int jumlahTugas) {
